@@ -21,6 +21,7 @@ Every item lands in exactly one part.
 import argparse
 import os
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -69,11 +70,25 @@ def run_shard(name: str, k: int, n: int) -> int:
     return 0 if unittest.TextTestRunner(verbosity=1).run(suite).wasSuccessful() else 1
 
 
+def fresh_out_dir(out_root: Path, name: str, k: int, n: int) -> Path:
+    """The OUT directory of one job, emptied first. tests/out is kept between local runs and many
+    tests write fixed names without --overwrite, so a second `npm test` in the same checkout failed
+    on the existing-output refusal; CI never saw it because every job starts from a fresh checkout.
+    Only a real directory directly under out_root, named after the module, is removed: a symlink
+    is never followed (its target is left alone, the link is replaced by a directory)."""
+    out = out_root / (name.replace("test_", "") + ("" if n == 1 else f"_{k + 1}"))
+    if out.is_symlink():
+        out.unlink()
+    elif out.is_dir() and out.resolve().parent == out_root.resolve():
+        shutil.rmtree(out)
+    out.mkdir(parents=True, exist_ok=True)
+    return out
+
+
 def run_job(job: "tuple", out_root: Path) -> "tuple":
     name, k, n = job
     label = name if n == 1 else f"{name}[{k + 1}/{n}]"
-    out = out_root / (name.replace("test_", "") + ("" if n == 1 else f"_{k + 1}"))
-    out.mkdir(parents=True, exist_ok=True)
+    out = fresh_out_dir(out_root, name, k, n)
     env = dict(os.environ, OUT=str(out))
     cmd = ([sys.executable, "-m", "unittest", name] if n == 1
            else [sys.executable, str(Path(__file__).resolve()), "--shard", name, str(k), str(n)])
