@@ -1249,6 +1249,11 @@ class OrchestrationTests(MediaFixtures):
     # ---------------------------------------------------------------- v0.7: MCP server / batch / ASR bridge
     def test_mcp_server_stdio(self):
         server = ROOT / "mcp" / "server.py"
+        # cut writes these without --overwrite; tests/out is kept between runs, so clear them or a
+        # re-run gets the existing-output refusal instead of a result document
+        for stale in (OUT / "mcp_cut.mp4", OUT / "mcp_cut2.mp4"):
+            if stale.exists():
+                stale.unlink()
         reqs = [
             {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
             {"jsonrpc": "2.0", "method": "notifications/initialized"},
