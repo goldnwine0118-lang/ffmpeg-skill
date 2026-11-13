@@ -1562,6 +1562,9 @@ class OrchestrationTests(MediaFixtures):
         in the cache where a later run would be served it as a finished stage."""
         cdir = OUT / "rcache_fail"
         shutil.rmtree(cdir, ignore_errors=True)
+        # the untimed run at the end writes cache_fail_out.mp4, and tests/out is kept between runs:
+        # without this a re-run would find that file and fail the "no output on failure" check
+        (OUT / "cache_fail_out.mp4").unlink(missing_ok=True)
         proj = self._cache_project("cache_fail")
         r = script("render.py", proj, "--cache", cdir, "--timeout", "0.05", "--json", expect_fail=True)
         self.assertEqual(json.loads(r.stdout)["error"]["kind"], "timeout")
