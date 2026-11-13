@@ -1668,6 +1668,10 @@ class PictureTests(MediaFixtures):
         env["PATH"] = os.pathsep.join([str(stub_dir), str(Path(sys.executable).parent)])
 
         out = OUT / "font_inject_overlay.mp4"
+        # Called directly rather than through script(), which would add --overwrite: a re-run in the
+        # same checkout (tests/out is kept) must not trip the existing-output refusal instead.
+        if out.exists():
+            out.unlink()
         proc = sh(sys.executable, SCRIPTS / "overlay.py", self.src, "--text", "hello", "--font", payload, "-o", out, env=env)
         # The escaped payload must show up with a backslash-escaped comma ahead of the injected
         # "drawtext=text=OWNED" -- proof it stays a literal char inside font='...' instead of
@@ -2049,6 +2053,8 @@ class PictureTests(MediaFixtures):
         sh("ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-i", self.src, "-an", "-c:v", "copy", noaudio)
         self.assertIsNone(probe(str(noaudio)).get("audio"))
         out = OUT / "overlay_noaudio.mp4"
+        if out.exists():  # tests/out is kept between runs and this call does not pass --overwrite
+            out.unlink()
         proc = subprocess.run(
             [sys.executable, str(SCRIPTS / "overlay.py"), str(noaudio), "--image", str(self.logo),
              "--position", "bottom-right", "--start", "1", "--end", "5", "--fade", "0.3", "-o", str(out)],

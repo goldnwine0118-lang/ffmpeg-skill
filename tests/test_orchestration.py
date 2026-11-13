@@ -1249,6 +1249,11 @@ class OrchestrationTests(MediaFixtures):
     # ---------------------------------------------------------------- v0.7: MCP server / batch / ASR bridge
     def test_mcp_server_stdio(self):
         server = ROOT / "mcp" / "server.py"
+        # cut writes these without --overwrite; tests/out is kept between runs, so clear them or a
+        # re-run gets the existing-output refusal instead of a result document
+        for stale in (OUT / "mcp_cut.mp4", OUT / "mcp_cut2.mp4"):
+            if stale.exists():
+                stale.unlink()
         reqs = [
             {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
             {"jsonrpc": "2.0", "method": "notifications/initialized"},
@@ -1557,6 +1562,9 @@ class OrchestrationTests(MediaFixtures):
         in the cache where a later run would be served it as a finished stage."""
         cdir = OUT / "rcache_fail"
         shutil.rmtree(cdir, ignore_errors=True)
+        # the untimed run at the end writes cache_fail_out.mp4, and tests/out is kept between runs:
+        # without this a re-run would find that file and fail the "no output on failure" check
+        (OUT / "cache_fail_out.mp4").unlink(missing_ok=True)
         proj = self._cache_project("cache_fail")
         r = script("render.py", proj, "--cache", cdir, "--timeout", "0.05", "--json", expect_fail=True)
         self.assertEqual(json.loads(r.stdout)["error"]["kind"], "timeout")

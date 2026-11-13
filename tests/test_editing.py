@@ -1120,6 +1120,8 @@ class EditingTests(MediaFixtures):
         sh("ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
            "-f", "lavfi", "-i", "aevalsrc='0.5*sin(2*PI*440*t)*gt(sin(2*PI*0.25*t)\\,0)':s=48000",
            "-t", "6", wav_in)
+        # no -o, so script() adds no --overwrite: clear the default-named output a previous run left
+        (OUT / "silence_wav_in_tight.wav").unlink(missing_ok=True)
         proc = script("silence.py", wav_in)
         out = Path(proc.stdout.strip())
         self.assertEqual(out.suffix, ".wav")

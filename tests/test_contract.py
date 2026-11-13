@@ -1961,6 +1961,36 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(ci.count("--part ${{ matrix.part }}/3"), 2)
         self.assertEqual(ci.count("part: [1, 2, 3]"), 2)
 
+    def test_parallel_runner_gives_every_job_a_fresh_out_dir(self):
+        """tests/out is kept between local runs, and many tests write fixed names without
+        --overwrite: a second `npm test` in the same checkout failed on the existing-output
+        refusal. Each job's OUT directory is emptied first, and a symlink there is not followed."""
+        sys.path.insert(0, str(ROOT / "tests"))
+        try:
+            import run_parallel
+        finally:
+            sys.path.remove(str(ROOT / "tests"))
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d) / "out"
+            stale = root / "picture_3" / "font_inject_overlay.mp4"
+            stale.parent.mkdir(parents=True)
+            stale.write_bytes(b"x")
+            out = run_parallel.fresh_out_dir(root, "test_picture", 2, 4)
+            self.assertEqual(out, root / "picture_3")
+            self.assertTrue(out.is_dir())
+            self.assertEqual(list(out.iterdir()), [], "a previous run's output must not survive")
+            self.assertEqual(run_parallel.fresh_out_dir(root, "test_audio", 0, 1), root / "audio")
+            elsewhere = Path(d) / "elsewhere"
+            elsewhere.mkdir()
+            (elsewhere / "keep.txt").write_text("keep", encoding="utf-8")
+            try:
+                (root / "editing_1").symlink_to(elsewhere, target_is_directory=True)
+            except (OSError, NotImplementedError):
+                return  # no symlinks on this machine (Windows without the privilege)
+            out = run_parallel.fresh_out_dir(root, "test_editing", 0, 2)
+            self.assertFalse(out.is_symlink())
+            self.assertTrue((elsewhere / "keep.txt").exists(), "a symlinked OUT dir's target is never emptied")
+
     def test_npm_package_omits_the_maintainer_diary(self):
         """docs/design-decisions.md: references/process-pitfalls.md stays out of the npm package.
 
